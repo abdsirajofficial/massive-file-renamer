@@ -1,3 +1,5 @@
-dist
-.firebase
-.firebaserc
+{
+  "projects": {
+    "default": "abdsiraj-aee3c"
+  }
+}
