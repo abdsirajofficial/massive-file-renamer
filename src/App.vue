@@ -358,10 +358,20 @@ const processFiles = async () => {
     addLog(`Found ${mappingData.length} mapping(s) in Excel file`, 'info')
     addLog('─'.repeat(50), 'info')
     
-    // Create a map of uploaded PDF filenames for quick lookup
+    // Helper function to normalize filename (remove .pdf extension for comparison)
+    const normalizeFilename = (filename) => {
+      if (!filename) return ''
+      const normalized = filename.trim()
+      return normalized.toLowerCase().endsWith('.pdf') 
+        ? normalized.slice(0, -4).toLowerCase() 
+        : normalized.toLowerCase()
+    }
+    
+    // Create a map of uploaded PDF filenames for quick lookup (using normalized names as keys)
     const pdfFileMap = new Map()
     pdfFiles.value.forEach(file => {
-      pdfFileMap.set(file.name, file)
+      const normalizedName = normalizeFilename(file.name)
+      pdfFileMap.set(normalizedName, file)
       addLog(`📄 Uploaded: "${file.name}" (${(file.size / 1024).toFixed(2)} KB)`, 'info')
     })
     
@@ -384,10 +394,13 @@ const processFiles = async () => {
       addLog(`   Old name: "${oldName}"`, 'info')
       addLog(`   New name: "${newName}"`, 'info')
       
-      // Check if old filename exists in uploaded PDFs
-      if (pdfFileMap.has(oldName)) {
+      // Normalize the old name from Excel for comparison
+      const normalizedOldName = normalizeFilename(oldName)
+      
+      // Check if old filename exists in uploaded PDFs (using normalized comparison)
+      if (pdfFileMap.has(normalizedOldName)) {
         try {
-          const pdfFile = pdfFileMap.get(oldName)
+          const pdfFile = pdfFileMap.get(normalizedOldName)
           const fileSize = (pdfFile.size / 1024).toFixed(2)
           const finalNewName = newName.endsWith('.pdf') ? newName : `${newName}.pdf`
           
@@ -397,18 +410,18 @@ const processFiles = async () => {
           const blob = new Blob([await pdfFile.arrayBuffer()], { type: 'application/pdf' })
           
           processedFiles.value.push({
-            originalName: oldName,
+            originalName: pdfFile.name, // Use the actual uploaded filename
             newName: finalNewName,
             blob: blob,
             status: 'renamed'
           })
           
-          addLog(`   ✓ SUCCESS: "${oldName}" → "${finalNewName}"`, 'success')
+          addLog(`   ✓ SUCCESS: "${pdfFile.name}" → "${finalNewName}"`, 'success')
           addLog(`   File size: ${fileSize} KB`, 'success')
           renamedCount++
           
           // Remove from map to track which files were processed
-          pdfFileMap.delete(oldName)
+          pdfFileMap.delete(normalizedOldName)
         } catch (error) {
           addLog(`   ✗ ERROR: Failed to process "${oldName}"`, 'error')
           addLog(`   Error details: ${error.message}`, 'error')
@@ -429,8 +442,8 @@ const processFiles = async () => {
     addLog('\n' + '─'.repeat(50), 'info')
     if (pdfFileMap.size > 0) {
       addLog(`⚠ WARNING: ${pdfFileMap.size} uploaded PDF(s) not found in Excel file:`, 'warning')
-      pdfFileMap.forEach((file, filename) => {
-        addLog(`   - "${filename}" (${(file.size / 1024).toFixed(2)} KB) - Not in Excel mapping`, 'warning')
+      pdfFileMap.forEach((file, normalizedName) => {
+        addLog(`   - "${file.name}" (${(file.size / 1024).toFixed(2)} KB) - Not in Excel mapping`, 'warning')
       })
       addLog('These files were uploaded but have no mapping in the Excel file', 'warning')
     } else {
